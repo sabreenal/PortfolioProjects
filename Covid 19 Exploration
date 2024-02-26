@@ -1,0 +1,105 @@
+https://console.cloud.google.com/bigquery?sq=951093416013:bc82954bb3bd4d988f3b9b1fd7fa464f
+
+--Covid 19 Data Exploration
+
+SELECT location, date, total_cases,new_cases,total_deaths, population  
+FROM `covid-412820.covid_deaths.covid_deaths` 
+ORDER BY 1,2
+
+
+--Looking at total cases v total deaths
+--Shows likelihood of dying of Covid if contracted by country
+
+SELECT location, date, total_cases,total_deaths, (total_deaths/total_cases)*100 as death_percentage 
+FROM `covid-412820.covid_deaths.covid_deaths` 
+WHERE location ="United States"
+Order By 1,2
+
+
+--Looking at total cases v total population
+--Shows what percentage of population contracted Covid
+
+SELECT location, date, total_cases,population, (total_cases/population)*100 as infection_percentage 
+FROM `covid-412820.covid_deaths.covid_deaths` 
+WHERE location ="United States"
+Order By 1,2
+
+--Looking at countries with highest infection rates compared to population
+
+
+SELECT location,population, MAX(total_cases) as highest_infection_count, MAX((total_cases/population))*100 as infection_percentage 
+FROM `covid-412820.covid_deaths.covid_deaths` 
+GROUP BY location, population
+Order By infection_percentage desc
+
+--Showing countries with highest death rate by population
+
+SELECT location, MAX(total_deaths) AS total_death_count
+FROM `covid-412820.covid_deaths.covid_deaths` 
+WHERE continent is not null
+GROUP BY location
+Order By total_death_count desc
+
+--Breaking things down by continent
+
+--Showing continents with the highest death count by population
+
+SELECT continent, MAX(total_deaths) AS total_death_count
+FROM `covid-412820.covid_deaths.covid_deaths` 
+WHERE continent is not null
+GROUP BY continent
+Order By total_death_count desc
+
+
+--Global Numbers
+
+--by day totals
+
+SELECT date, SUM(new_cases) as cases, SUM(new_deaths) as deaths, (SUM(new_deaths)/SUM(new_cases)*100) as death_percentage
+FROM `covid-412820.covid_deaths.covid_deaths` 
+WHERE continent is not null
+Group By date
+Order By 1,2
+
+--total world
+
+SELECT SUM(new_cases) as cases, SUM(new_deaths) as deaths, (SUM(new_deaths)/SUM(new_cases)*100) as death_percentage
+FROM `covid-412820.covid_deaths.covid_deaths` 
+WHERE continent is not null
+Order By 1,2
+
+-- Total Population vs Vaccinations
+
+-- Joining deathes and vaccinations
+
+SELECT *
+FROM `covid-412820.covid_deaths.covid_deaths` as dea
+JOIN `covid-412820.covid_deaths.covid_vaccinations` as vac
+ON dea.location = vac.location and dea.date = vac.date
+
+-- looking at total population v vaccination
+
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+FROM `covid-412820.covid_deaths.covid_deaths` as dea
+JOIN `covid-412820.covid_deaths.covid_vaccinations` as vac
+ON dea.location = vac.location and dea.date = vac.date
+WHERE dea.continent is not null AND vac.new_vaccinations is not null
+ORDER BY 1,2,3
+
+-- Shows Percentage of Population that has recieved at least one Covid Vaccine
+
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, SUM(vac.new_vaccinations) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) as rolling_vax_count
+FROM `covid-412820.covid_deaths.covid_deaths` as dea
+JOIN `covid-412820.covid_deaths.covid_vaccinations` as vac
+ON dea.location = vac.location and dea.date = vac.date
+WHERE dea.continent is not null
+ORDER BY 2,3
+
+--creating view to store data for later visualizations
+
+CREATE VIEW `covid-412820.covid.popvax` as
+SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, SUM(vac.new_vaccinations) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) as rolling_vax_count
+FROM `covid-412820.covid_deaths.covid_deaths` as dea
+JOIN `covid-412820.covid_deaths.covid_vaccinations` as vac
+ON dea.location = vac.location and dea.date = vac.date
+WHERE dea.continent is not null
